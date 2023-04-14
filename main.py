@@ -7,6 +7,7 @@ import warnings
 from enum import Enum
 import builtins
 import numpy as np
+import datetime
 
 import torch
 import torch.backends.cudnn as cudnn
@@ -53,7 +54,7 @@ parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
 parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)',
                     dest='weight_decay')
-parser.add_argument('-p', '--print-freq', default=10, type=int,
+parser.add_argument('-p', '--print-freq', default=250, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
@@ -147,6 +148,19 @@ def main():
         # Simply call main_worker function
         main_worker(args.gpu, ngpus_per_node, args)
 
+def setup_for_distributed():
+    """
+    This function disables printing when not in master process
+    """
+    builtin_print = builtins.print
+
+    def print(*args, **kwargs):
+        now = datetime.datetime.now().time()
+        builtin_print('[{}] '.format(now), end='')  # print with time stamp
+        builtin_print(*args, **kwargs)
+
+    builtins.print = print
+
 
 def main_worker(gpu, ngpus_per_node, args):
     global best_acc1
@@ -154,6 +168,8 @@ def main_worker(gpu, ngpus_per_node, args):
     
     if args.gpu is not None:
         print("Use GPU: {} for training".format(args.gpu))
+
+    setup_for_distributed()
 
     # suppress printing if not first GPU on each node
     if args.multiprocessing_distributed and (args.gpu != 0 or args.rank != 0):
@@ -255,7 +271,8 @@ def main_worker(gpu, ngpus_per_node, args):
             best_acc1 = checkpoint['best_acc1']
             if args.gpu is not None:
                 # best_acc1 may be from a checkpoint from a different GPU
-                best_acc1 = best_acc1.to(args.gpu)
+                if not isinstance(best_acc1, float):
+                    best_acc1 = best_acc1.to(args.gpu)
             model.load_state_dict(checkpoint['state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer'])
             scheduler.load_state_dict(checkpoint['scheduler'])
@@ -404,9 +421,9 @@ def validate(val_loader, model, criterion, args):
                 i = base_progress + i
                 if args.gpu is not None and torch.cuda.is_available():
                     images = images.cuda(args.gpu, non_blocking=True)
-                if torch.backends.mps.is_available():
-                    images = images.to('mps')
-                    target = target.to('mps')
+                # if torch.backends.mps.is_available():
+                #     images = images.to('mps')
+                #     target = target.to('mps')
                 if torch.cuda.is_available():
                     target = target.cuda(args.gpu, non_blocking=True)
 
