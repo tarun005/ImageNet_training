@@ -6,6 +6,7 @@ import time
 import warnings
 from enum import Enum
 import builtins
+import numpy as np
 
 import torch
 import torch.backends.cudnn as cudnn
@@ -78,8 +79,33 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
                          'fastest way to use PyTorch for either single node or '
                          'multi node data parallel training')
 parser.add_argument('--dummy', action='store_true', help="use fake data to benchmark")
+parser.add_argument('--subset_size', type=int, default=1000000)
 
 best_acc1 = 0
+
+def select_indices(dataset, len_subset, mode="class_balanced"):
+    """
+    Return a subset of dataset by sampling a fraction of samples from each class.
+    The total # after sampling must match len_subset.
+    """
+
+    from collections import Counter
+
+    len_dataset = len(dataset)
+    keep_frac = len_subset/len_dataset
+
+    targets = dataset.targets
+    cls_num_list = Counter(targets)
+
+    select_idxs = []
+    for label_id , n_s in cls_num_list.items():
+        class_indices = np.where(np.array(targets) == label_id)[0]
+        np.random.shuffle(class_indices)
+        num_sample = int(n_s*keep_frac)
+        select_idx_label = class_indices[:int(num_sample)]
+        select_idxs.extend(select_idx_label.tolist())
+
+    return select_idxs
 
 
 def main():
@@ -257,6 +283,10 @@ def main_worker(gpu, ngpus_per_node, args):
                 transforms.ToTensor(),
                 normalize,
             ]))
+
+    if args.subset_size is not None:
+        train_dataset = torch.utils.data.Subset(train_dataset, select_indices(train_dataset, args.subset_size))
+        print(len(train_dataset))
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
