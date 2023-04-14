@@ -275,18 +275,22 @@ def main_worker(gpu, ngpus_per_node, args):
                 normalize,
             ]))
 
-        val_dataset = datasets.ImageFolder(
-            valdir,
-            transforms.Compose([
-                transforms.Resize(256),
-                transforms.CenterCrop(224),
-                transforms.ToTensor(),
-                normalize,
-            ]))
+        if os.path.exists(valdir):
+            val_dataset = datasets.ImageFolder(
+                valdir,
+                transforms.Compose([
+                    transforms.Resize(256),
+                    transforms.CenterCrop(224),
+                    transforms.ToTensor(),
+                    normalize,
+                ]))
+        else:
+            val_dataset = torch.utils.data.Subset(train_dataset, select_indices(train_dataset, 50000))
 
     if args.subset_size is not None:
         train_dataset = torch.utils.data.Subset(train_dataset, select_indices(train_dataset, args.subset_size))
         print(len(train_dataset))
+        print(len(val_dataset))
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
