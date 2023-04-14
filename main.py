@@ -80,6 +80,7 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
                          'multi node data parallel training')
 parser.add_argument('--dummy', action='store_true', help="use fake data to benchmark")
 parser.add_argument('--subset_size', type=int, default=1000000)
+parser.add_argument('--output_dir', default="")
 
 best_acc1 = 0
 
@@ -230,6 +231,15 @@ def main_worker(gpu, ngpus_per_node, args):
     
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
     scheduler = StepLR(optimizer, step_size=30, gamma=0.1)
+
+    if not args.multiprocessing_distributed or (args.multiprocessing_distributed
+                and args.rank % ngpus_per_node == 0):
+
+        if not os.path.exists(args.output_dir):
+            os.makedirs(args.output_dir, exist_ok=True)
+
+        if os.path.exists(os.path.join(args.output_dir, "checkpoint.pth.tar")) and args.resume == "":
+            args.resume = os.path.join(args.output_dir, "checkpoint.pth.tar")
     
     # optionally resume from a checkpoint
     if args.resume:
@@ -336,7 +346,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 'best_acc1': best_acc1,
                 'optimizer' : optimizer.state_dict(),
                 'scheduler' : scheduler.state_dict()
-            }, is_best)
+            }, is_best, os.path.join(args.output_dir, "checkpoint.pth.tar"), os.path.join(args.output_dir, "model_best.pth.tar"))
 
 
 def train(train_loader, model, criterion, optimizer, epoch, device, args):
@@ -447,10 +457,10 @@ def validate(val_loader, model, criterion, args):
     return top1.avg
 
 
-def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
+def save_checkpoint(state, is_best, filename='checkpoint.pth.tar', best_filename='model_best.pth.tar'):
     torch.save(state, filename)
     if is_best:
-        shutil.copyfile(filename, 'model_best.pth.tar')
+        shutil.copyfile(filename, best_filename)
 
 class Summary(Enum):
     NONE = 0
