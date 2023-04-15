@@ -258,8 +258,8 @@ def main_worker(gpu, ngpus_per_node, args):
         if not os.path.exists(args.output_dir):
             os.makedirs(args.output_dir, exist_ok=True)
 
-        if os.path.exists(os.path.join(args.output_dir, "checkpoint.pth.tar")) and args.resume == "":
-            args.resume = os.path.join(args.output_dir, "checkpoint.pth.tar")
+        if os.path.exists(os.path.join(args.output_dir, "checkpoint.pth")) and args.resume == "":
+            args.resume = os.path.join(args.output_dir, "checkpoint.pth")
     
     # optionally resume from a checkpoint
     if args.resume:
