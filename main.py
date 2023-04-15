@@ -82,6 +82,7 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
 parser.add_argument('--dummy', action='store_true', help="use fake data to benchmark")
 parser.add_argument('--subset_size', type=int, default=1000000)
 parser.add_argument('--output_dir', default="")
+parser.add_argument('--n_classes', default=10000, type=int)
 
 best_acc1 = 0
 
@@ -193,6 +194,9 @@ def main_worker(gpu, ngpus_per_node, args):
     else:
         print("=> creating model '{}'".format(args.arch))
         model = models.__dict__[args.arch]()
+
+    # import pdb; pdb.set_trace()
+    model.fc = nn.Linear(2048, args.n_classes)
 
     if not torch.cuda.is_available() and not torch.backends.mps.is_available():
         print('using CPU, this will be slow')
@@ -363,7 +367,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 'best_acc1': best_acc1,
                 'optimizer' : optimizer.state_dict(),
                 'scheduler' : scheduler.state_dict()
-            }, is_best, os.path.join(args.output_dir, "checkpoint.pth.tar"), os.path.join(args.output_dir, "model_best.pth.tar"))
+            }, is_best, os.path.join(args.output_dir, "checkpoint.pth"), os.path.join(args.output_dir, "model_best.pth"))
 
 
 def train(train_loader, model, criterion, optimizer, epoch, device, args):
