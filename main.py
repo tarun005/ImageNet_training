@@ -8,6 +8,7 @@ from enum import Enum
 import builtins
 import numpy as np
 import datetime
+import timm
 
 import torch
 import torch.backends.cudnn as cudnn
@@ -80,7 +81,7 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
                          'fastest way to use PyTorch for either single node or '
                          'multi node data parallel training')
 parser.add_argument('--dummy', action='store_true', help="use fake data to benchmark")
-parser.add_argument('--subset_size', type=int, default=1000000)
+parser.add_argument('--subset_size', type=int, default=2000000)
 parser.add_argument('--output_dir', default="")
 parser.add_argument('--n_classes', default=10000, type=int)
 
@@ -187,16 +188,18 @@ def main_worker(gpu, ngpus_per_node, args):
             args.rank = args.rank * ngpus_per_node + gpu
         dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
                                 world_size=args.world_size, rank=args.rank)
-    # create model
-    if args.pretrained:
-        print("=> using pre-trained model '{}'".format(args.arch))
-        model = models.__dict__[args.arch](pretrained=True)
-    else:
-        print("=> creating model '{}'".format(args.arch))
-        model = models.__dict__[args.arch]()
+    # # create model
+    # if args.pretrained:
+    #     print("=> using pre-trained model '{}'".format(args.arch))
+    #     model = models.__dict__[args.arch](pretrained=True)
+    # else:
+    #     print("=> creating model '{}'".format(args.arch))
+    #     model = models.__dict__[args.arch]()
+
+    model = timm.create_model("swinv2_tiny_window16_256", pretrained=False)
 
     # import pdb; pdb.set_trace()
-    model.fc = nn.Linear(2048, args.n_classes)
+    # model.fc = nn.Linear(2048, args.n_classes)
 
     if not torch.cuda.is_available() and not torch.backends.mps.is_available():
         print('using CPU, this will be slow')
@@ -279,7 +282,7 @@ def main_worker(gpu, ngpus_per_node, args):
                     best_acc1 = best_acc1.to(args.gpu)
             model.load_state_dict(checkpoint['state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer'])
-            scheduler.load_state_dict(checkpoint['scheduler'])
+            # scheduler.load_state_dict(checkpoint['scheduler'])
             print("=> loaded checkpoint '{}' (epoch {})"
                   .format(args.resume, checkpoint['epoch']))
         else:
@@ -300,7 +303,7 @@ def main_worker(gpu, ngpus_per_node, args):
         train_dataset = datasets.ImageFolder(
             traindir,
             transforms.Compose([
-                transforms.RandomResizedCrop(224),
+                transforms.RandomResizedCrop(256),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 normalize,
